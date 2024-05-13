@@ -1,4 +1,4 @@
-('/Users/jayantyadav/UPPMAX/Whisper_project/Whisper-sens/whisper_gui/build/gui/PYZ-00.pyz',
+('/Users/jayantyadav/UPPMAX/Whisper_project/Whisper-sens/whisper_gui/macOS_x86/build/Whisper-sens/PYZ-00.pyz',
  [('__future__',
    '/usr/local/Caskroom/miniforge/base/envs/whisper-sens_env/lib/python3.12/__future__.py',
    'PYMODULE'),

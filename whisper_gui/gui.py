@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from whisper import Whisper
 
 class MyTabView(ctk.CTkTabview):
     def __init__(self, master, **kwargs):
@@ -24,7 +25,12 @@ class MyTabView(ctk.CTkTabview):
         # self.button.pack(padx=20, pady=20)
 
     def button_callback(self):
-        print("button clicked")
+        print("Running Whisper. do not click the button again!!!")
+        whisper = Whisper()
+        whisper.load_models(model_path='./models/')
+        predictions = whisper.pipeline()
+        print(predictions)
+        self.textbox.insert("0.0", predictions)
 
 
 class App(ctk.CTk):
@@ -44,4 +50,6 @@ class App(ctk.CTk):
 if __name__ == '__main__':
     app = App()
     app.mainloop()
+    
+
 

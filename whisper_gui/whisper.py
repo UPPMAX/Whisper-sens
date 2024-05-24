@@ -2,7 +2,7 @@ import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, AutoModelForCausalLM
 import time
 from tqdm import tqdm
-from datasets import load_dataset
+from datasets import load_dataset, Audio
 from evaluate import load
 
 def generate_with_time(model, inputs, **kwargs):
@@ -20,7 +20,7 @@ def assisted_generate_with_time(model, inputs, **kwargs):
 class Whisper:
     def __init__(self):
         self.cache_dir = None # download the model
-        self.data_path = './' # same dir as app
+        # self.data_path = './' # same dir as app
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
         self.model_id = "openai/whisper-tiny"
@@ -44,8 +44,11 @@ class Whisper:
     def load_models(self, model_path):
         self.cache_dir = model_path
 
-    def data_loader(self, data_path):
-        self.data_path = data_path        
+    def __data_loader__(self, data_path):
+        # self.data_path = data_path        
+        audio_dataset = dataset.from_dict(
+            {"audio": [data_path]}).cast_column("audio", Audio())
+        return audio_dataset
 
     def encoder(self, ):
         pass
@@ -53,12 +56,13 @@ class Whisper:
     def decoder(self,):
         pass
 
-    def pipeline(self,):
+    def pipeline(self,data_path):
 
         self.__from_pretrained__(self.model_id, self.cache_dir, self.torch_dtype)
+        dataset = self.__data_loader__(data_path)
 
         predictions = []
-        dataset = load_dataset("sanchit-gandhi/voxpopuli_dummy", "nl", split="validation")
+        # dataset = load_dataset("sanchit-gandhi/voxpopuli_dummy", "nl", split="validation")
         for sample in tqdm(dataset):
             audio = sample["audio"]
             inputs = self.processor(audio["array"], sampling_rate=audio["sampling_rate"], return_tensors="pt")

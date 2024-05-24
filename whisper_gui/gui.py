@@ -1,36 +1,61 @@
 import customtkinter as ctk
 from whisper import Whisper
 
+
 class MyTabView(ctk.CTkTabview):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         # self.pack(padx=20, pady=20)
         
         # create tabs
-        self.add("General")
         self.add("Settings")
-        self.set("General")
+        self.add("General")
+        self.set("Settings")
 
         
 
         # General Tab widgets
 
+        # File selections and Model settings
+        self.button = ctk.CTkButton(master=self.tab("Settings"), text="Select File", command=self.button_select_file)
+        self.button.grid(row=0, column=0, sticky="nsew")
+
         # Model output (editable and exportable)
         self.textbox = ctk.CTkTextbox(master=self.tab("General"), width=400, corner_radius=0)
         self.textbox.grid(row=0, column=0, sticky="nsew")
-        self.textbox.insert("0.0", "Some example text!\n" * 50)
-
-        self.button = ctk.CTkButton(master=self.tab("General"), text="Run Whisper", command=self.button_callback)
+        self.textbox.insert("0.0", "Trasctriptions...")
+        self.button = ctk.CTkButton(master=self.tab("General"), text="Run Whisper", command=self.button_run_model)
         self.button.grid(row=1, column=0, sticky="nsew")
         # self.button.pack(padx=20, pady=20)
 
-    def button_callback(self):
+    def button_select_file(self):
+        print("Select file...")
+        recording_file = ctk.filedialog.askopenfilename(
+            parent=self.tab("Settings"),
+            title="Browse Audio/Video File",
+            filetypes=(
+                ("Audio Files", ("*.mp3", "*.wav")),
+                ("Video Files", ("*.mp4",)),
+                ("A/V Files", ("*.mp3", "*.wav", "*.mp4"))
+            )
+        )
+        print(recording_file)
+        if not recording_file:
+            print("No file selected")
+            return None
+        else: 
+            return recording_file # TODO: buttons dont return. Use Whisper obj inside App somehow.
+
+
+    def button_run_model(self):
         print("Running Whisper. do not click the button again!!!")
         whisper = Whisper()
         whisper.load_models(model_path='./models/')
         predictions = whisper.pipeline()
         print(predictions)
+        self.textbox.delete("0.0", 'end')
         self.textbox.insert("0.0", predictions)
+
 
 
 class App(ctk.CTk):

@@ -2,8 +2,12 @@ import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, AutoModelForCausalLM
 import time
 from tqdm import tqdm
-from datasets import load_dataset, Audio
+from datasets import load_dataset, Audio, Dataset
 from evaluate import load
+import os
+import subprocess
+import ffmpeg
+import numpy as np
 
 def generate_with_time(model, inputs, **kwargs):
     start_time = time.time()
@@ -23,7 +27,8 @@ class Whisper:
         # self.data_path = './' # same dir as app
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        self.model_id = "openai/whisper-tiny"
+        # self.model_id = "openai/whisper-tiny"
+        self.model_id = "openai/whisper-large-v2"
         # self.assistant_model_id = "openai/whisper-tiny"
         self.model = None
         self.processor = None
@@ -44,10 +49,82 @@ class Whisper:
     def load_models(self, model_path):
         self.cache_dir = model_path
 
-    def __data_loader__(self, data_path):
-        # self.data_path = data_path        
-        audio_dataset = dataset.from_dict(
-            {"audio": [data_path]}).cast_column("audio", Audio())
+    def __ffmpeg_read__(self, bpayload: bytes, sampling_rate: int) -> np.array:
+        """
+        Helper function to read an audio file through ffmpeg.
+        """
+        ar = f"{sampling_rate}"
+        ac = "1"
+        format_for_conversion = "f32le"
+        ffmpeg_command = [
+            "/home/jayya931/UPPMAX/Whisper_project/Whisper-sens/ffmpeg/ffmpeg-git-20240524-amd64-static/ffmpeg",
+            "-i",
+            "pipe:0",
+            "-ac",
+            ac,
+            "-ar",
+            ar,
+            "-f",
+            format_for_conversion,
+            "-hide_banner",
+            "-loglevel",
+            "quiet",
+            "pipe:1",
+        ]
+
+        try:
+            with subprocess.Popen(ffmpeg_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE) as ffmpeg_process:
+                output_stream = ffmpeg_process.communicate(bpayload)
+        except FileNotFoundError as error:
+            raise ValueError("ffmpeg was not found but is required to load audio files from filename") from error
+        out_bytes = output_stream[0]
+        audio = np.frombuffer(out_bytes, np.float32)
+        if audio.shape[0] == 0:
+            raise ValueError(
+                "Soundfile is either not in the correct format or is malformed. Ensure that the soundfile has "
+                "a valid audio file extension (e.g. wav, flac or mp3) and is not corrupted. If reading from a remote "
+                "URL, ensure that the URL is the full address to **download** the audio file."
+            )
+        return audio
+
+    def __dataloader__(self, file):
+        self.data_path = file
+
+        # if "FFMPEG_PATH" not in os.environ:
+        #     os.environ["FFMPEG_PATH"] = "../ffmpeg/ffmpeg-git-20240524-amd64-static/ffmpeg"    
+        
+        # data_path = ffmpeg.input(data_path)\
+        #             .audio\
+        #             .output("audio.mp3")\
+        #             .run()
+        # print(self.data_path)
+        # cmd = [
+        #     "/home/jayya931/UPPMAX/Whisper_project/Whisper-sens/ffmpeg/ffmpeg-git-20240524-amd64-static/ffmpeg",
+        #     "-nostdin",
+        #     "-threads", "0",
+        #     "-i", file,
+        #     "-f", "s16le",
+        #     "-ac", "1",
+        #     "-acodec", "pcm_s16le",
+        #     "-ar", str(16000),
+        #     "/home/jayya931/UPPMAX/Whisper_project/Whisper-sens/whisper_gui/output.wav"
+        # ]
+        
+        # try:
+        #     out = run(cmd, capture_output=True, check=True).stdout
+        # except CalledProcessError as e:
+        #     raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+            # load as bytes
+        # file = "/home/jayya931/Downloads/sample_audio.mp3"
+        with open(file, "rb") as f:
+            inputs = f.read()
+
+        # read bytes as array
+        # inputs = self.__ffmpeg_read__(inputs, sampling_rate=16000)
+        inputs = file
+        audio_dataset = Dataset.from_dict(
+            {"audio": [inputs]}).cast_column("audio", Audio(sampling_rate=16000))
+        # return inputs
         return audio_dataset
 
     def encoder(self, ):
@@ -56,22 +133,25 @@ class Whisper:
     def decoder(self,):
         pass
 
-    def pipeline(self,data_path):
+    def pipeline(self, data_path):
 
         self.__from_pretrained__(self.model_id, self.cache_dir, self.torch_dtype)
-        dataset = self.__data_loader__(data_path)
+        dataset = self.__dataloader__(data_path)
 
         predictions = []
         # dataset = load_dataset("sanchit-gandhi/voxpopuli_dummy", "nl", split="validation")
-        for sample in tqdm(dataset):
+        for sample in tqdm(dataset): #TODO: convert ffmpeg_read output to audio_dataset
             audio = sample["audio"]
-            inputs = self.processor(audio["array"], sampling_rate=audio["sampling_rate"], return_tensors="pt")
+            # audio = dataset
+            inputs = self.processor(audio["array"], sampling_rate=16000, return_tensors="pt")
+            # inputs = self.processor(audio, sampling_rate=16000, return_tensors="pt")
             inputs = inputs.to(device=self.device, dtype=self.torch_dtype) #half precision (float16) does not work. Use float32.
             
-            outputs = self.model.generate(**inputs, language="nl", task="transcribe")
+            # outputs = self.model.generate(**inputs, language="en", task="transcribe") #language="nl"
+            outputs = self.model.generate(**inputs, task="transcribe") 
             # output, gen_time = assisted_generate_with_time(model, inputs, language="nl", task="transcribe")
             predictions.append(self.processor.batch_decode(outputs, skip_special_tokens=True, normalize=True)[0])
-
+            #BUG: whisper only works for 30 sec of the clip!
         return predictions
 
 

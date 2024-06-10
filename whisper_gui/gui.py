@@ -12,6 +12,9 @@ class MyTabView(ctk.CTkTabview):
         self.add("General")
         self.set("Settings")
 
+        self.recording_file = None
+        self.whisper = Whisper()
+        self.predictions = ""
         
 
         # General Tab widgets
@@ -30,7 +33,7 @@ class MyTabView(ctk.CTkTabview):
 
     def button_select_file(self):
         print("Select file...")
-        recording_file = ctk.filedialog.askopenfilename(
+        self.recording_file = ctk.filedialog.askopenfilename(
             parent=self.tab("Settings"),
             title="Browse Audio/Video File",
             filetypes=(
@@ -39,22 +42,25 @@ class MyTabView(ctk.CTkTabview):
                 ("A/V Files", ("*.mp3", "*.wav", "*.mp4"))
             )
         )
-        print(recording_file)
-        if not recording_file:
+        print(self.recording_file)
+        if not self.recording_file:
             print("No file selected")
             return None
         else: 
-            return recording_file # TODO: buttons dont return. Use Whisper obj inside App somehow.
+            pass
+            # return recording_file # TODO: buttons dont return. Use Whisper obj inside App somehow.
 
 
     def button_run_model(self):
         print("Running Whisper. do not click the button again!!!")
-        whisper = Whisper()
-        whisper.load_models(model_path='./models/')
-        predictions = whisper.pipeline()
-        print(predictions)
+        # whisper = Whisper()
+        self.whisper.load_models(model_path='/home/jayya931/UPPMAX/Whisper_project/Whisper-sens/models/')
+        # predictions = whisper.pipeline()
+        # print(predictions)
+        self.predictions = self.whisper.pipeline(self.recording_file)
+        print(self.predictions)
         self.textbox.delete("0.0", 'end')
-        self.textbox.insert("0.0", predictions)
+        self.textbox.insert("0.0", self.predictions)
 
 
 
@@ -67,6 +73,7 @@ class App(ctk.CTk):
     
         self.tab_view = MyTabView(master=self)
         self.tab_view.grid(row=0, column=0, padx=5, pady=5)
+        
 
 
 

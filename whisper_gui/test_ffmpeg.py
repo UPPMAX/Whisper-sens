@@ -53,7 +53,7 @@ if __name__=="__main__":
     # if "FFMPEG_PATH" not in os.environ:
     # os.environ["FFMPEG_PATH"] = "../ffmpeg/ffmpeg-git-20240524-amd64-static/ffmpeg" 
 
-    file = "/home/jayya931/Downloads/sample_audio.mp3"
+    file = "/home/jayya931/Downloads/lex_clip.mp3"
 
     # data_path = ffmpeg.input(data_path)\                              
     #             .audio\
@@ -92,7 +92,7 @@ if __name__=="__main__":
     # read bytes as array
     inputs = ffmpeg_read(inputs, sampling_rate=16000)
     
-    
+
     # inputs = self.processor(audio["array"], sampling_rate=16000, return_tensors="pt")
     # inputs = inputs.to(device=self.device, dtype=self.torch_dtype) #half precision (float16) does not work. Use float32.
     

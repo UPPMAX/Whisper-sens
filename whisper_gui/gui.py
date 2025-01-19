@@ -111,7 +111,6 @@ class MainWindow(QMainWindow):
 
         # Call the foobar function with collected data
         RequestHandler().router(audio_length, language, task, model, initial_prompt, input_files, output_folder)
-        # self.foobar(audio_length, language, task, model, initial_prompt, input_files, output_folder)
 
         # Show pop-up message
         QMessageBox.information(self, "Submission", "Your job has been submitted")
@@ -127,16 +126,6 @@ class MainWindow(QMainWindow):
         self.output_folder = ''
         self.output_folder_label.setText("No folder selected")
 
-
-    def foobar(self, audio_length, language, task, model, initial_prompt, input_files, output_folder):
-        # Implement the foobar function logic here
-        print(f"Audio Length: {audio_length}")
-        print(f"Language: {language}")
-        print(f"Task: {task}")
-        print(f"Model: {model}")
-        print(f"Initial Prompt: {initial_prompt}")
-        print(f"Input Files: {input_files}")
-        print(f"Output Folder: {output_folder}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

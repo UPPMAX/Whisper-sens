@@ -1,5 +1,6 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QTextEdit, QPushButton, QFileDialog, QVBoxLayout, QWidget, QSpinBox, QHBoxLayout, QMessageBox
+from request_handler import RequestHandler
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -109,7 +110,8 @@ class MainWindow(QMainWindow):
         output_folder = getattr(self, 'output_folder', '')
 
         # Call the foobar function with collected data
-        self.foobar(audio_length, language, task, model, initial_prompt, input_files, output_folder)
+        RequestHandler().router(audio_length, language, task, model, initial_prompt, input_files, output_folder)
+        # self.foobar(audio_length, language, task, model, initial_prompt, input_files, output_folder)
 
         # Show pop-up message
         QMessageBox.information(self, "Submission", "Your job has been submitted")

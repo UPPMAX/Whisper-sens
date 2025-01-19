@@ -8,52 +8,66 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Whisper Application")
         self.setGeometry(100, 100, 600, 400)
 
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
 
         # Audio Length
+        audio_length_layout = QHBoxLayout()
         self.audio_length_label = QLabel("Total Audio Length in hrs (rounded up):")
         self.audio_length_input = QSpinBox()
-        self.audio_length_input.setRange(1, 50)
-        layout.addWidget(self.audio_length_label)
-        layout.addWidget(self.audio_length_input)
+        self.audio_length_input.setRange(1, 120)
+        audio_length_layout.addWidget(self.audio_length_label)
+        audio_length_layout.addWidget(self.audio_length_input)
+        main_layout.addLayout(audio_length_layout)
 
         # Language
+        language_layout = QHBoxLayout()
         self.language_label = QLabel("Language used in recordings (leave blank for autodetection):")
         self.language_dropdown = QComboBox()
         self.language_dropdown.addItems(["Autodetect","English", "Spanish", "French", "German", "Chinese"])
-        layout.addWidget(self.language_label)
-        layout.addWidget(self.language_dropdown)
+        language_layout.addWidget(self.language_label)
+        language_layout.addWidget(self.language_dropdown)
+        main_layout.addLayout(language_layout)
 
         # Task
+        task_layout = QHBoxLayout()
         self.task_label = QLabel("Select whether to transcribe or translate(english only):")
         self.task_dropdown = QComboBox()
         self.task_dropdown.addItems(["transcribe", "translate"])
-        layout.addWidget(self.task_label)
-        layout.addWidget(self.task_dropdown)
+        task_layout.addWidget(self.task_label)
+        task_layout.addWidget(self.task_dropdown)
+        main_layout.addLayout(task_layout)
 
         # Model
+        model_layout = QHBoxLayout()
         self.model_label = QLabel("Model type:")
         self.model_dropdown = QComboBox()
         self.model_dropdown.addItems(["large-v2", "large-v3"])
-        layout.addWidget(self.model_label)
-        layout.addWidget(self.model_dropdown)
+        model_layout.addWidget(self.model_label)
+        model_layout.addWidget(self.model_dropdown)
+        main_layout.addLayout(task_layout)
 
         # Initial Prompt
         self.prompt_label = QLabel("Initial Prompt if any (max 80 words):")
         self.prompt_input = QTextEdit()
         self.prompt_input.setMaximumHeight(100)
-        layout.addWidget(self.prompt_label)
-        layout.addWidget(self.prompt_input)
+        main_layout.addWidget(self.prompt_label)
+        main_layout.addWidget(self.prompt_input)
 
         # Select Input File
         self.input_file_button = QPushButton("Select Input Files")
         self.input_file_button.clicked.connect(self.select_input_files)
-        layout.addWidget(self.input_file_button)
+        main_layout.addWidget(self.input_file_button)
+
+        self.input_file_label = QLabel("No files selected")
+        main_layout.addWidget(self.input_file_label)
 
         # Select Output Folder
         self.output_folder_button = QPushButton("Select Output Folder")
         self.output_folder_button.clicked.connect(self.select_output_folder)
-        layout.addWidget(self.output_folder_button)
+        main_layout.addWidget(self.output_folder_button)
+
+        self.output_folder_label = QLabel("No folder selected")
+        main_layout.addWidget(self.output_folder_label)
 
         # OK and Cancel Buttons
         button_layout = QHBoxLayout()
@@ -63,21 +77,27 @@ class MainWindow(QMainWindow):
         self.cancel_button.clicked.connect(self.close)
         button_layout.addWidget(self.ok_button)
         button_layout.addWidget(self.cancel_button)
-        layout.addLayout(button_layout)
+        main_layout.addLayout(button_layout)
 
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(main_layout)
         self.setCentralWidget(container)
 
     def select_input_files(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Select Input Files", "", "Audio/Video Files (*.mp3 *.mp4 *.mpeg *.mpga *.m4a *.wav *.webm *.wma)")
         if files:
             self.input_files = files
+            self.input_file_label.setText(f"{len(self.input_files)} files selected")
+        else:
+            self.input_file_label.setText("No files selected")
 
     def select_output_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
         if folder:
             self.output_folder = folder
+            self.output_folder_label.setText(self.output_folder)
+        else:
+            self.output_folder_label.setText("No folder selected")
 
     def submit_form(self):
         audio_length = self.audio_length_input.value()
@@ -101,7 +121,9 @@ class MainWindow(QMainWindow):
         self.model_dropdown.setCurrentIndex(0)
         self.prompt_input.clear()
         self.input_files = []
+        self.input_file_label.setText("No files selected")
         self.output_folder = ''
+        self.output_folder_label.setText("No folder selected")
 
 
     def foobar(self, audio_length, language, task, model, initial_prompt, input_files, output_folder):

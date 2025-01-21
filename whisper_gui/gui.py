@@ -105,12 +105,13 @@ class MainWindow(QMainWindow):
         language = self.language_dropdown.currentText()
         task = self.task_dropdown.currentText()
         model = self.model_dropdown.currentText()
+        diarize = False
         initial_prompt = self.prompt_input.toPlainText()
         input_files = getattr(self, 'input_files', [])
         output_folder = getattr(self, 'output_folder', '')
 
-        # Call the foobar function with collected data
-        RequestHandler().router(audio_length, language, task, model, initial_prompt, input_files, output_folder)
+        # Call the whisper function with collected data
+        RequestHandler().router(audio_length, language, task, model, diarize, initial_prompt, input_files, output_folder)
 
         # Show pop-up message
         QMessageBox.information(self, "Submission", "Your job has been submitted")
@@ -126,7 +127,7 @@ class MainWindow(QMainWindow):
         self.output_folder = ''
         self.output_folder_label.setText("No folder selected")
 
-
+    
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()

@@ -5,30 +5,43 @@
 # With GPU : Whispercpp --gpu -m /app/models/ggml-large-v2.bin -f /home/jayan/Downloads/Zoom_sample.wav
 
 import subprocess
+import io
+import os
+from slurm_template import SlurmTemplate
 
 class RequestHandler:
     def __init__(self):
         self.audio_length = None
-        self.language = None
-        self.task = None
+        self.language = 'auto'
+        self.task = 'transcribe'
         self.model = None
         self.initial_prompt = None
         self.input_files = []
         self.output_folder = None
 
-    def run_whispercpp(self, mode, input_file, output_file=None, model_path=None, use_gpu=False, threads=1):
+    def _submit_slurm_job(self, mode=None, input_file=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
+        """For running on compute node"""
+        pass
+
+
+    def _run_whispercpp(self, mode=None, input_file=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
+        """For running on login node"""
         command = ["Whispercpp"]
 
         if mode == "ffmpeg":
-            command.extend(["--ffmpeg", input_file, output_file])
+            command.extend(["--ffmpeg", input_file, 'audio_file.wav'])
         elif mode == "ffprobe":
             command.extend(["--ffprobe", input_file])
         elif mode == "transcribe":
             if use_gpu:
                 command.append("--gpu")
-            if model_path:
-                command.extend(["-m", model_path])
-            command.extend(["-t", str(threads), "-f", input_file])
+            else:
+                command.extend(["-t", str(threads)])
+            if self.task == "translate":
+                command.append("--translate")
+
+            command.extend(["-m", model_path, "-f", input_file, "--output-file", output_folder])
+
         else:
             raise ValueError("Invalid mode specified")
 
@@ -40,19 +53,41 @@ class RequestHandler:
             print("Error occurred:", e.stderr)
             return None
         
-    def run_whisperx(self, mode, input_file, output_file=None, model_path=None, use_gpu=False, threads=1):
+    def _run_whisperx(self, mode, input_file, model_path=None, use_gpu=False, threads=1):
         pass
 
-    def router(self, audio_length, language, task, model, initial_prompt, input_files, output_folder):
-        # Implement the foobar function logic here
+    def router(self, audio_length, language, task, model, diarize, initial_prompt, input_files, output_folder):
+        
         print(f"Audio Length: {audio_length}")
         print(f"Language: {language}")
+        if language != "Autodetect":
+            self.language = language
         print(f"Task: {task}")
+        self.task = task
         print(f"Model: {model}")
+        self.model = model
+        print(f"Diarize: {diarize}")
         print(f"Initial Prompt: {initial_prompt}")
         print(f"Input Files: {input_files}")
+        self.input_files = input_files
         print(f"Output Folder: {output_folder}")
+        self.output_folder = output_folder
 
+
+        for audio_path in input_files:  
+            if diarize:
+                pass
+            else:
+                if audio_path.endswith(".mp4"):
+                    wav_output = self._run_whispercpp(mode="ffmpeg", input_file=audio_path)
+                    with io.BytesIO(wav_output) as audio_stream:
+                        self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
+                elif audio_path.endswith(".wav"):
+                    self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
+                else:
+                    print("Invalid file format")
+        
+        return  None
 
 # # Example usage
 # if __name__ == "__main__":

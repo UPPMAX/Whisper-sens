@@ -10,15 +10,7 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 600, 400)
 
         main_layout = QVBoxLayout()
-
-        # Audio Length
-        audio_length_layout = QHBoxLayout()
-        self.audio_length_label = QLabel("Total Audio Length in hrs (rounded up):")
-        self.audio_length_input = QSpinBox()
-        self.audio_length_input.setRange(1, 120)
-        audio_length_layout.addWidget(self.audio_length_label)
-        audio_length_layout.addWidget(self.audio_length_input)
-        main_layout.addLayout(audio_length_layout)
+    
 
         # Language
         language_layout = QHBoxLayout()
@@ -45,7 +37,7 @@ class MainWindow(QMainWindow):
         self.model_dropdown.addItems(["large-v2", "large-v3"])
         model_layout.addWidget(self.model_label)
         model_layout.addWidget(self.model_dropdown)
-        main_layout.addLayout(task_layout)
+        main_layout.addLayout(model_layout)
 
         # Initial Prompt
         self.prompt_label = QLabel("Initial Prompt if any (max 80 words):")
@@ -101,7 +93,7 @@ class MainWindow(QMainWindow):
             self.output_folder_label.setText("No folder selected")
 
     def submit_form(self):
-        audio_length = self.audio_length_input.value()
+
         language = self.language_dropdown.currentText()
         task = self.task_dropdown.currentText()
         model = self.model_dropdown.currentText()
@@ -111,13 +103,12 @@ class MainWindow(QMainWindow):
         output_folder = getattr(self, 'output_folder', '')
 
         # Call the whisper function with collected data
-        RequestHandler().router(audio_length, language, task, model, diarize, initial_prompt, input_files, output_folder)
+        RequestHandler().router(language, task, model, diarize, initial_prompt, input_files, output_folder)
 
         # Show pop-up message
         QMessageBox.information(self, "Submission", "Your job has been submitted")
 
         # Clear input fields
-        self.audio_length_input.setValue(1)
         self.language_dropdown.setCurrentIndex(0)
         self.task_dropdown.setCurrentIndex(0)
         self.model_dropdown.setCurrentIndex(0)

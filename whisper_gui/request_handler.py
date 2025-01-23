@@ -7,21 +7,74 @@
 import subprocess
 import io
 import os
+from logger_config import logger
 from slurm_template import SlurmTemplate
+from pathlib import Path
 
 class RequestHandler:
     def __init__(self):
-        self.audio_length = None
         self.language = 'auto'
         self.task = 'transcribe'
-        self.model = None
+        self.model = "/app/models/ggml-large-v2.bin"
         self.initial_prompt = None
         self.input_files = []
         self.output_folder = None
 
+        self.cluster = os.environ.get("CLUSTER") or "Local"
+        self.whoami = subprocess.run("whoami", shell=True,capture_output=True, text=True).stdout.strip()
+        logger.info(f"RequestHandler initialized for project: {self.whoami}")
+
     def _submit_slurm_job(self, mode=None, input_file=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
         """For running on compute node"""
-        pass
+        
+        if self.cluster in ["Rackham", "Snowy"]:
+            script_dir = f"/home/{self.whoami}/Desktop/Whisper_logs"
+        elif self.cluster == "Bianca":
+            script_dir = f"/home/{self.whoami}/Desktop/proj/Whisper_logs"
+
+        try:
+            if Path.exists(script_dir) == False:
+                os.mkdir(script_dir)
+
+            subprocess.run(["module load FFmpeg"], shell=True)
+            audio_duration = 0.0
+            for audio_path in self.input_files:
+                audio_duration += subprocess.run([f"ffprobe -i {audio_path} -show_entries format=duration -v quiet -of csv='p=0'"], shell=True, capture_output=True, text=True).stdout
+            
+            audio_duration = max((audio_duration//3600) + 1, 1) # Minimum 1 hr 
+            if audio_duration > 120:
+                logger.error("Audio duration exceeds 120 hrs (5 days)")
+                exit(1)
+            subprocess.run(["module unload FFmpeg"], shell=True)
+            
+            slurm = SlurmTemplate(job_time=f"{audio_duration}:00", 
+                                whisper_module="Whispercpp", 
+                                script_dir=script_dir)
+            
+            slurm.submit()
+
+        except Exception as e:
+            logger.exception("Error occurred in either ffprobe or submitting slurm job: ", e.stderr)
+
+        return None
+
+    def _submit_local_job(self, mode=None, diarize=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
+        """For running on login node"""
+        
+        for audio_path in self.input_files:  
+            if diarize:
+                pass
+            else:
+                if audio_path.endswith(".mp4"):
+                    wav_output = self._run_whispercpp(mode="ffmpeg", input_file=audio_path)
+                    with io.BytesIO(wav_output) as audio_stream:
+                        self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
+                elif audio_path.endswith(".wav"):
+                    self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
+                else:
+                    print("Invalid file format")
+
+        return None
 
 
     def _run_whispercpp(self, mode=None, input_file=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
@@ -56,16 +109,15 @@ class RequestHandler:
     def _run_whisperx(self, mode, input_file, model_path=None, use_gpu=False, threads=1):
         pass
 
-    def router(self, audio_length, language, task, model, diarize, initial_prompt, input_files, output_folder):
+    def router(self, language, task, model, diarize, initial_prompt, input_files, output_folder):
         
-        print(f"Audio Length: {audio_length}")
         print(f"Language: {language}")
         if language != "Autodetect":
             self.language = language
         print(f"Task: {task}")
-        self.task = task
+        self.task = task or self.task
         print(f"Model: {model}")
-        self.model = model
+        self.model = model or self.model
         print(f"Diarize: {diarize}")
         print(f"Initial Prompt: {initial_prompt}")
         print(f"Input Files: {input_files}")
@@ -73,19 +125,11 @@ class RequestHandler:
         print(f"Output Folder: {output_folder}")
         self.output_folder = output_folder
 
+        if self.cluster in ["Rackham", "Snowy", "Bianca"]:
+            self._submit_slurm_job(diarize=False)
+        elif self.cluster == "Local": 
+            self._submit_local_job(diarize=False)
 
-        for audio_path in input_files:  
-            if diarize:
-                pass
-            else:
-                if audio_path.endswith(".mp4"):
-                    wav_output = self._run_whispercpp(mode="ffmpeg", input_file=audio_path)
-                    with io.BytesIO(wav_output) as audio_stream:
-                        self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
-                elif audio_path.endswith(".wav"):
-                    self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
-                else:
-                    print("Invalid file format")
         
         return  None
 

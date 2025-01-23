@@ -1,15 +1,15 @@
 import subprocess
 import os
 from datetime import datetime
-from pathlib import Path
+from logger_config import logger
 
 class SlurmTemplate(str):
 
     def __init__(self):
 
         self.account = None
-        self.node_type = None
-        self.num_nodes = None
+        self.node_type = "core"
+        self.num_nodes = 1
         self.job_time = None
         self.job_name = f"Whisper_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.output_file = None
@@ -32,8 +32,8 @@ class SlurmTemplate(str):
         #SBATCH -n {self.num_nodes}
         #SBATCH -t {self.job_time}
         #SBATCH -J {self.job_name}
-        #SBATCH -o {self.output_file}
-        #SBATCH -e {self.error_file}
+        #SBATCH -o {self.output_file}/{self.job_name}_%u_%j.out
+        #SBATCH -e {self.error_file}/{self.job_name}_%u_%j.out
         {self.slurm_constraints}
 
         module load {self.whisper_module}
@@ -42,32 +42,43 @@ class SlurmTemplate(str):
 
         """
 
-        with open(f"{self.script_dir}/{self.script_name}", "w") as f:
-            f.write(sbatch_script)
+        try: 
+            with open(f"{self.script_dir}/{self.script_name}", "w") as f:
+                f.write(sbatch_script)
+            return True
+        except Exception as e:
+            logger.exception("Error occurred in writing bash script: ", e.stderr)
+            return False
 
     def submit(self):
 
-        
+        device = "gpu"
+
 
         if self.cluster == "Rackham" or self.cluster == "Snowy":
 
-            self.script_dir = f"/home/{self.whoami}/Desktop/Whisper_logs"
+            group_list = subprocess.run(f"groups {self.whoami}", capture_output=True, text=True).stdout.strip()
+            self.account = group_list.split()[-1]
 
-            if Path.exists(self.script_dir) == False:
-                os.mkdir(self.script_dir)
+            if device == "gpu":
+                self.slurm_constraints = f"#SBATCH --gres=gpu:1 -M snowy"
 
             command = f"sbatch -M snowy {self.script_dir}/{self.script_name}.sh"
 
         elif self.cluster == "Bianca":
 
-            self.script_dir = f"/home/{self.whoami}/Desktop/proj/Whisper_logs"
+            hostname = subprocess.run(["hostname", "-s"], capture_output=True, text=True).stdout.strip()
+            self.account = hostname.split("-")[0]
 
-            if Path.exists(self.script_dir) == False:
-                os.mkdir(self.script_dir)
+            if device == "gpu":
+                self.slurm_constraints = f"#SBATCH -C gpu --gpus-per-node=1"
 
             command = f"sbatch {self.script_dir}/{self.script_name}.sh"
 
         try:
-            result =  subprocess.run(command, check=True, text=True, capture_output=True)
+            if self.script():
+                result =  subprocess.run(command, check=True, text=True, capture_output=True)
+                if result.returncode == 0:
+                    logger.info(f"Job {self.job_name} submitted successfully")
         except subprocess.CalledProcessError as e:
-            print("Error occurred:", e.stderr)
+            logger.exception("Error occurred while submitting the job: ", e.stderr)

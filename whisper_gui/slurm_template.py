@@ -1,7 +1,9 @@
 import subprocess
 import os
+import logging
 from datetime import datetime
-from logger_config import logger
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 class SlurmTemplate(str):
 

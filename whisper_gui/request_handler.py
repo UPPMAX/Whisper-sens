@@ -7,9 +7,11 @@
 import subprocess
 import io
 import os
-from logger_config import logger
-from slurm_template import SlurmTemplate
+import logging
+from whisper_gui.slurm_template import SlurmTemplate
 from pathlib import Path
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 class RequestHandler:
     def __init__(self):
@@ -54,7 +56,7 @@ class RequestHandler:
             slurm.submit()
 
         except Exception as e:
-            logger.exception("Error occurred in either ffprobe or submitting slurm job: ", e.stderr)
+            logger.exception("Error occurred in either ffprobe or submitting slurm job: ", e)
 
         return None
 
@@ -68,9 +70,9 @@ class RequestHandler:
                 if audio_path.endswith(".mp4"):
                     wav_output = self._run_whispercpp(mode="ffmpeg", input_file=audio_path)
                     with io.BytesIO(wav_output) as audio_stream:
-                        self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
+                        self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
                 elif audio_path.endswith(".wav"):
-                    self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model, use_gpu=False, threads=16)
+                    self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
                 else:
                     print("Invalid file format")
 

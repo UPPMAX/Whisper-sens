@@ -1,7 +1,7 @@
 import sys
 import logging
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QTextEdit, QPushButton, QFileDialog, QVBoxLayout, QWidget, QSpinBox, QHBoxLayout, QMessageBox
-from whisper_gui.request_handler import RequestHandler
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QTextEdit, QPushButton, QFileDialog, QVBoxLayout, QWidget, QSpinBox, QHBoxLayout, QMessageBox
+from  request_handler import RequestHandler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 

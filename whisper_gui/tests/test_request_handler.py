@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from whisper_gui.request_handler import RequestHandler
+from request_handler import RequestHandler
 import subprocess
 
 class TestRequestHandler(unittest.TestCase):

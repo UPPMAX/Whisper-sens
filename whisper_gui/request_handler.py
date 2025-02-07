@@ -67,7 +67,7 @@ class RequestHandler:
             if diarize:
                 pass
             else:
-                if audio_path.endswith(".mp4"):
+                if audio_path.endswith((".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".webm", ".wma")):
                     wav_output = self._run_whispercpp(mode="ffmpeg", input_file=audio_path)
                     with io.BytesIO(wav_output) as audio_stream:
                         self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)

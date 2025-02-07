@@ -5,24 +5,24 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-class SlurmTemplate(str):
+class SlurmTemplate:
 
-    def __init__(self):
+    def __init__(self, job_time, whisper_module, commands, whoami, script_dir):
 
         self.account = None
         self.node_type = "core"
         self.num_nodes = 1
-        self.job_time = None
+        self.job_time = job_time
         self.job_name = f"Whisper_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.output_file = None
         self.error_file = None
         self.slurm_constraints = None
-        self.whisper_module = None
+        self.whisper_module = whisper_module
         self.commands = None
 
         self.cluster = os.environ.get("CLUSTER")
-        self.whoami = os.environ.get("whoami")
-        self.script_dir = None
+        self.whoami = whoami
+        self.script_dir = script_dir
         self.script_name = f"{self.job_name}.sh"
 
 
@@ -57,25 +57,25 @@ class SlurmTemplate(str):
         device = "gpu"
 
 
-        if self.cluster == "Rackham" or self.cluster == "Snowy":
+        if self.cluster == "rackham" or self.cluster == "snowy":
 
-            group_list = subprocess.run(f"groups {self.whoami}", capture_output=True, text=True).stdout.strip()
+            group_list = subprocess.run(f"groups {self.whoami}", shell=True, capture_output=True, text=True).stdout.strip()
             self.account = group_list.split()[-1]
 
             if device == "gpu":
                 self.slurm_constraints = f"#SBATCH --gres=gpu:1 -M snowy"
 
-            command = f"sbatch -M snowy {self.script_dir}/{self.script_name}.sh"
+            command = f"sbatch -M snowy {self.script_dir}/{self.script_name}"
 
-        elif self.cluster == "Bianca":
+        elif self.cluster == "bianca":
 
-            hostname = subprocess.run(["hostname", "-s"], capture_output=True, text=True).stdout.strip()
+            hostname = subprocess.run(["hostname", "-s"], shell=True, capture_output=True, text=True).stdout.strip()
             self.account = hostname.split("-")[0]
 
             if device == "gpu":
                 self.slurm_constraints = f"#SBATCH -C gpu --gpus-per-node=1"
 
-            command = f"sbatch {self.script_dir}/{self.script_name}.sh"
+            command = f"sbatch {self.script_dir}/{self.script_name}"
 
         try:
             if self.script():

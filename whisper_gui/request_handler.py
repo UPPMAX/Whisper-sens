@@ -8,7 +8,7 @@ import subprocess
 import io
 import os
 import logging
-from whisper_gui.slurm_template import SlurmTemplate
+from slurm_template import SlurmTemplate
 from pathlib import Path
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class RequestHandler:
     def __init__(self):
         self.language = 'auto'
         self.task = 'transcribe'
-        self.model = "/app/models/ggml-large-v2.bin"
+        self.model_path = "/app/models/ggml-large-v2.bin"
         self.initial_prompt = None
         self.input_files = []
         self.output_folder = None
@@ -26,31 +26,47 @@ class RequestHandler:
         self.whoami = subprocess.run("whoami", shell=True,capture_output=True, text=True).stdout.strip()
         logger.info(f"RequestHandler initialized for project: {self.whoami}")
 
-    def _submit_slurm_job(self, mode=None, input_file=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
+    def _submit_slurm_job(self, mode=None, diarize=None, input_file=None, output_folder=None, model_path=None, use_gpu=False, threads=16):
         """For running on compute node"""
-        
-        if self.cluster in ["Rackham", "Snowy"]:
-            script_dir = f"/home/{self.whoami}/Desktop/Whisper_logs"
-        elif self.cluster == "Bianca":
-            script_dir = f"/home/{self.whoami}/Desktop/proj/Whisper_logs"
+
+        if self.cluster in ["rackham", "snowy"]:
+            script_dir = Path(f"/home/{self.whoami}/Desktop/Whisper_logs")
+        elif self.cluster == "bianca":
+            script_dir = Path(f"/home/{self.whoami}/Desktop/proj/Whisper_logs")
+
+        print(script_dir)
 
         try:
-            if Path.exists(script_dir) == False:
-                os.mkdir(script_dir)
+            if not script_dir.exists():
+                print("Creating Whisper_logs directory")
+                script_dir.mkdir(parents=True, exist_ok=True)
 
-            subprocess.run(["module load FFmpeg"], shell=True)
+            # subprocess.run(["module load FFmpeg"], shell=True, capture_output=True)
+
             audio_duration = 0.0
             for audio_path in self.input_files:
-                audio_duration += subprocess.run([f"ffprobe -i {audio_path} -show_entries format=duration -v quiet -of csv='p=0'"], shell=True, capture_output=True, text=True).stdout
-            
-            audio_duration = max((audio_duration//3600) + 1, 1) # Minimum 1 hr 
+                print(audio_path)
+                # result = subprocess.run([f"ffprobe", "-i" , audio_path, "-show_entries", "format=duration", "-v" "quiet", "-of", "csv='p=0'"], shell=True, capture_output=True, text=True)
+                duration_str = subprocess.run([f"ffprobe -i {audio_path} -show_entries format=duration -v quiet -of csv='p=0'"], shell=True, capture_output=True, text=True).stdout.strip()
+                if duration_str:
+                    audio_duration += float(duration_str)
+                else :
+                    logger.error("Error occurred in ffprobe while processing {audio_path}")
+                    exit(1)
+            audio_duration = int(max((audio_duration//3600) + 1, 1)) # Minimum 1 hr 
+            print(f"Audio duration: {audio_duration} hrs")
+
             if audio_duration > 120:
                 logger.error("Audio duration exceeds 120 hrs (5 days)")
                 exit(1)
-            subprocess.run(["module unload FFmpeg"], shell=True)
+            # subprocess.run(["module unload FFmpeg"], shell=True)
             
+            command = self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
+
             slurm = SlurmTemplate(job_time=f"{audio_duration}:00", 
                                 whisper_module="Whispercpp", 
+                                commands=command,
+                                whoami=self.whoami,
                                 script_dir=script_dir)
             
             slurm.submit()
@@ -70,11 +86,20 @@ class RequestHandler:
                 if audio_path.endswith((".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".webm", ".wma")):
                     wav_output = self._run_whispercpp(mode="ffmpeg", input_file=audio_path)
                     with io.BytesIO(wav_output) as audio_stream:
-                        self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
+                        # self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
+                        command = self._run_whispercpp(mode="transcribe", input_file=audio_stream, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
                 elif audio_path.endswith(".wav"):
-                    self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
+                    command = self._run_whispercpp(mode="transcribe", input_file=audio_path, output_folder=output_folder, model_path=model_path, use_gpu=False, threads=16)
                 else:
                     print("Invalid file format")
+                
+                try:
+                    result = subprocess.run(command, check=True, capture_output=True, text=True)
+                    print("Command output:", result.stdout)
+                    return result.stdout
+                except subprocess.CalledProcessError as e:
+                    print("Error occurred:", e.stderr)
+                    return None
 
         return None
 
@@ -95,18 +120,19 @@ class RequestHandler:
             if self.task == "translate":
                 command.append("--translate")
 
-            command.extend(["-m", model_path, "-f", input_file, "--output-file", output_folder])
+            command.extend(["-m", self.model_path, "--language", self.language , "-f", input_file, "--output-file", output_folder])
 
         else:
             raise ValueError("Invalid mode specified")
 
-        try:
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
-            print("Command output:", result.stdout)
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            print("Error occurred:", e.stderr)
-            return None
+        return command
+        # try:
+        #     result = subprocess.run(command, check=True, capture_output=True, text=True)
+        #     print("Command output:", result.stdout)
+        #     return result.stdout
+        # except subprocess.CalledProcessError as e:
+        #     print("Error occurred:", e.stderr)
+        #     return None
         
     def _run_whisperx(self, mode, input_file, model_path=None, use_gpu=False, threads=1):
         pass
@@ -119,15 +145,17 @@ class RequestHandler:
         print(f"Task: {task}")
         self.task = task or self.task
         print(f"Model: {model}")
-        self.model = model or self.model
+        self.model_path = model or self.model_path
         print(f"Diarize: {diarize}")
         print(f"Initial Prompt: {initial_prompt}")
         print(f"Input Files: {input_files}")
         self.input_files = input_files
         print(f"Output Folder: {output_folder}")
         self.output_folder = output_folder
+        print(f"Cluster: {self.cluster}")
+        print(f"Whoami: {self.whoami}")
 
-        if self.cluster in ["Rackham", "Snowy", "Bianca"]:
+        if self.cluster in ["rackham", "snowy", "bianca"]:
             self._submit_slurm_job(diarize=False)
         elif self.cluster == "Local": 
             self._submit_local_job(diarize=False)
